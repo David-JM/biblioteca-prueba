@@ -1,7 +1,8 @@
 package com.ceiba.biblioteca.infraestructura;
 
-import com.ceiba.biblioteca.aplicacion.comando.ComandoLibro;
-import com.ceiba.biblioteca.testdatabuilder.LibroTestDataBuilder;
+import com.ceiba.biblioteca.aplicacion.comando.ComandoPrestamo;
+import com.ceiba.biblioteca.dominio.Prestamo;
+import com.ceiba.biblioteca.testdatabuilder.PrestamoTestDataBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -12,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,9 +21,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @SpringBootTest
 public class ControladorPrestamoTest {
-    public static final String ESTE_PRODUCTO_NO_CUENTA_CON_GARANTIA = "Este producto no cuenta con garantía extendida";
-    public static final String ISBN_LIBRO_PD1023 = "PD1023";
-    public static final String NOMBRE_CLIENTE_PEDRO = "PEDRO";
+
+    private static final String ISBN_LIBRO_PALINDROMO = "1221";
+    private static final String ISBN_LIBRO_PD9999 = "PD9999";
 
     @Autowired
     private MockMvc mvc;
@@ -31,13 +33,34 @@ public class ControladorPrestamoTest {
 
     @Test
     public void generarPrestamoLibro() throws Exception {
-        ComandoLibro comandoLibro = new LibroTestDataBuilder().buildComando();
+        ComandoPrestamo comandoPrestamo = new PrestamoTestDataBuilder().conIsbn(ISBN_LIBRO_PD9999).buildComando();
         mvc.perform(MockMvcRequestBuilders
-                .post("/prestamos/{isbn}/{nombreCliente}", ISBN_LIBRO_PD1023, NOMBRE_CLIENTE_PEDRO)
-                .content(objectMapper.writeValueAsString(comandoLibro))
+                .post("/prestamos")
+                .content(objectMapper.writeValueAsString(comandoPrestamo))
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+    }
 
+    @Test
+    public void debeLanzarPrestamoException() throws Exception {
+        ComandoPrestamo comandoPrestamo = new PrestamoTestDataBuilder().conIsbn(ISBN_LIBRO_PALINDROMO).buildComando();
+        mvc.perform(MockMvcRequestBuilders
+                .post("/prestamos")
+                .content(objectMapper.writeValueAsString(comandoPrestamo))
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void debeObtenerPrestamoGenerado() throws Exception {
+        Prestamo prestamo = new PrestamoTestDataBuilder().build();
+        mvc.perform(MockMvcRequestBuilders
+                .get("/prestamos/{isbn}", prestamo.getLibro().getIsbn())
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.nombreUsuario").value(prestamo.getNombreUsuario()));
     }
 }
